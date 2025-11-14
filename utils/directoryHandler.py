@@ -163,6 +163,7 @@ class File:
             "duration": self.duration,
         }
 
+
     @classmethod
     def from_dict(cls, data):
         path = data.get("path", "")
