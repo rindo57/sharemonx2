@@ -455,40 +455,6 @@ class NewBotMode:
         self.current_folder = folder_path
         self.current_folder_name = name
         self.drive_data.save()
-
-DRIVE_DATA: NewDriveData = None
-BOT_MODE: NewBotMode = None
-'''
-async def loadDriveData():
-    global DRIVE_DATA, BOT_MODE
-
-    while True:
-        try:
-            # Load data from MongoDB
-            data = drive_data_collection.find_one({})
-            if data:
-                DRIVE_DATA = NewDriveData.from_dict(data)
-                print("DRIVE DATA: ", DRIVE_DATA)
-                logger.info("Drive data loaded from MongoDB")
-            else:
-                logger.info("Creating new drive.data file")
-                DRIVE_DATA = NewDriveData({"/": Folder("/", "ad78asfas90ad5", "/", "root")}, [])
-                DRIVE_DATA.save()
-
-            # Start Bot Mode (if not already started)
-            if config.MAIN_BOT_TOKEN and BOT_MODE is None:
-                from utils.bot_mode import start_bot_mode
-
-                BOT_MODE = NewBotMode(DRIVE_DATA)
-                await start_bot_mode(DRIVE_DATA, BOT_MODE)
-
-        except Exception as e:
-            logger.error(f"Error loading drive data: {e}")
-
-        # Wait for 60 seconds before reloading
-        await asyncio.sleep(30)
-
-'''
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import PyMongoError
@@ -586,6 +552,3 @@ async def loadDriveData2():
             DRIVE_DATA.save()
     except Exception as e:
         logger.error(f"Error loading drive data: {e}")
-
-
-
