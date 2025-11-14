@@ -1852,9 +1852,9 @@ async def startFileDownloadFromUrl(request: Request, session: str = Cookie(None)
         try:
             id = getRandomID()
 			from utils.downloader import enqueue_download
-            await enqueue_download(
+			await enqueue_download(
                 data["url"], id, data["path"], data["filename"], data["singleThreaded"], uploader
-            )
+			)
             return JSONResponse({"status": "ok", "id": id})
         except Exception as e:
             return JSONResponse({"status": str(e)})
