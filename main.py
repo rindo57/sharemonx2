@@ -1,7 +1,9 @@
 from utils.downloader import (
     download_file,
+	enqueue_download,
     get_file_info_from_url,
 )
+
 import asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -1851,7 +1853,7 @@ async def startFileDownloadFromUrl(request: Request, session: str = Cookie(None)
         logger.info(f"startFileDownloadFromUrl {data}")
         try:
             id = getRandomID()
-			from utils.downloader import enqueue_download
+
 			await enqueue_download(
                 data["url"], id, data["path"], data["filename"], data["singleThreaded"], uploader
 			)
