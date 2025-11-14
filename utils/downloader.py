@@ -30,6 +30,42 @@ async def download_progress_callback(status, current, total, id):
         total,
     )
 
+# Global sequential queue for URL downloads/uploads
+TASK_QUEUE: asyncio.Queue | None = None
+WORKER_STARTED = False
+
+async def _worker_loop():
+    global TASK_QUEUE, WORKER_STARTED
+    logger.info("URL download worker started")
+    while True:
+        try:
+            task = await TASK_QUEUE.get()
+            try:
+                await download_file(**task)
+            except Exception as e:
+                logger.error(f"Queued download failed: {e}")
+            finally:
+                TASK_QUEUE.task_done()
+        except Exception as e:
+            logger.error(f"Worker loop error: {e}")
+
+async def enqueue_download(url, id, path, filename, singleThreaded, uploader):
+    global TASK_QUEUE, WORKER_STARTED
+    if TASK_QUEUE is None:
+        TASK_QUEUE = asyncio.Queue()
+    await TASK_QUEUE.put({
+        "url": url,
+        "id": id,
+        "path": path,
+        "filename": filename,
+        "singleThreaded": singleThreaded,
+        "uploader": uploader,
+    })
+    if not WORKER_STARTED:
+        WORKER_STARTED = True
+        # Fire-and-forget worker task
+        asyncio.create_task(_worker_loop())
+
 
 async def download_file(url, id, path, filename, singleThreaded, uploader):
     global DOWNLOAD_PROGRESS, STOP_DOWNLOAD
