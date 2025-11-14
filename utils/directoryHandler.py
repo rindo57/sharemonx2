@@ -455,10 +455,18 @@ class NewBotMode:
         self.current_folder = folder_path
         self.current_folder_name = name
         self.drive_data.save()
+import asyncio
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import PyMongoError
 
 DRIVE_DATA: NewDriveData = None
 BOT_MODE: NewBotMode = None
 
+import asyncio
+from pymongo.errors import PyMongoError
+
+DRIVE_DATA: NewDriveData = None
+BOT_MODE: NewBotMode = None
 
 async def loadDriveData():
     """Watch for changes in MongoDB Atlas collection using change streams"""
@@ -528,12 +536,11 @@ async def loadDriveData():
     watcher_thread = threading.Thread(target=watch_changes_sync, daemon=True)
     watcher_thread.start()
     logger.info("✓ Change stream watcher started (running in background)")
-        
-async def loadDriveData2():
-    global DRIVE_DATA
 
+async def loadDriveData2():
+    """Load drive data without watching (one-time load)"""
+    global DRIVE_DATA
     try:
-        # Load data from MongoDB
         data = drive_data_collection.find_one({})
         if data:
             DRIVE_DATA = NewDriveData.from_dict(data)
@@ -543,7 +550,5 @@ async def loadDriveData2():
             logger.info("Creating new drive.data file")
             DRIVE_DATA = NewDriveData({"/": Folder("/", "ad78asfas90ad5", "/", "root")}, [])
             DRIVE_DATA.save()
-
     except Exception as e:
         logger.error(f"Error loading drive data: {e}")
-
