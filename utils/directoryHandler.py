@@ -104,7 +104,6 @@ class Folder:
 
 
 
-
 class File:
     def __init__(
         self,
@@ -165,29 +164,6 @@ class File:
 
     @classmethod
     def from_dict(cls, data):
-        path = data.get("path", "")
-        fid = data.get("id")
-        if isinstance(fid, str):
-            fid = fid.lstrip("/")  # strip any leading slash
-        return cls(
-            name=data["name"],
-            file_id=data["file_id"],
-            id=fid,
-            size=data["size"],
-            path=path,
-            rentry_link=data["rentry_link"],
-            paste_url=data["paste_url"],
-            uploader=data["uploader"],
-            audio=data["audio"],
-            subtitle=data["subtitle"],
-            resolution=data["resolution"],
-            codec=data["codec"],
-            bit_depth=data["bit_depth"],
-            duration=data["duration"],
-        )
-        '''
-    @classmethod
-    def from_dict(cls, data):
     # Ensure path is not missing or empty
         path = data.get("path", "")
         return cls(
@@ -206,7 +182,6 @@ class File:
             bit_depth=data["bit_depth"],
             duration=data["duration"],
         )
-        '''
 
 class NewDriveData:
     def __init__(self, contents: dict, used_ids: list) -> None:
@@ -371,25 +346,15 @@ class NewDriveData:
 
     def trash_file_folder(self, path: str, trash: bool) -> None:
         logger.info(f"Trashing {path}")
-    
-        parts = [p for p in path.strip("/").split("/") if p]
-        if not parts:
-            logger.error("Invalid path for trash operation: empty parts")
-            return
-    
-        folder_path = "/" if len(parts) == 1 else "/" + "/".join(parts[:-1])
-        file_id = parts[-1].lstrip("/")  # normalize id
+
+        if len(path.strip("/").split("/")) > 0:
+            folder_path = "/" + "/".join(path.strip("/").split("/")[:-1])
+            file_id = path.strip("/").split("/")[-1]
+        else:
+            folder_path = "/"
+            file_id = path.strip("/")
         folder_data = self.get_directory(folder_path)
-    
-        target = folder_data.contents.get(file_id)
-        if target is None:
-            # tolerate bad DB keys that kept the leading slash
-            target = folder_data.contents.get("/" + file_id)
-        if target is None:
-            logger.error(f"Item not found for path={path} (folder_path={folder_path}, file_id={file_id})")
-            return
-    
-        target.trash = trash
+        folder_data.contents[file_id].trash = trash
         self.save()
 
     def get_trashed_files_folders(self):
@@ -490,40 +455,6 @@ class NewBotMode:
         self.current_folder = folder_path
         self.current_folder_name = name
         self.drive_data.save()
-
-DRIVE_DATA: NewDriveData = None
-BOT_MODE: NewBotMode = None
-'''
-async def loadDriveData():
-    global DRIVE_DATA, BOT_MODE
-
-    while True:
-        try:
-            # Load data from MongoDB
-            data = drive_data_collection.find_one({})
-            if data:
-                DRIVE_DATA = NewDriveData.from_dict(data)
-                print("DRIVE DATA: ", DRIVE_DATA)
-                logger.info("Drive data loaded from MongoDB")
-            else:
-                logger.info("Creating new drive.data file")
-                DRIVE_DATA = NewDriveData({"/": Folder("/", "ad78asfas90ad5", "/", "root")}, [])
-                DRIVE_DATA.save()
-
-            # Start Bot Mode (if not already started)
-            if config.MAIN_BOT_TOKEN and BOT_MODE is None:
-                from utils.bot_mode import start_bot_mode
-
-                BOT_MODE = NewBotMode(DRIVE_DATA)
-                await start_bot_mode(DRIVE_DATA, BOT_MODE)
-
-        except Exception as e:
-            logger.error(f"Error loading drive data: {e}")
-
-        # Wait for 60 seconds before reloading
-        await asyncio.sleep(30)
-
-'''
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import PyMongoError
@@ -621,6 +552,3 @@ async def loadDriveData2():
             DRIVE_DATA.save()
     except Exception as e:
         logger.error(f"Error loading drive data: {e}")
-
-
-
