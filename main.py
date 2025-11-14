@@ -1835,14 +1835,12 @@ async def getFileInfoFromUrl(request: Request, session: str = Cookie(None)):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=403, detail="Invalid session token")
 
-
 @app.post("/api/startFileDownloadFromUrl")
 async def startFileDownloadFromUrl(request: Request, session: str = Cookie(None)):
     data = await request.json()
     print("fukin data: ", data)
     if not session:
         raise HTTPException(status_code=403, detail="Not authenticated")
-#       return JSONResponse({"status": "Invalid password"})
     try:
         payload = jwt.decode(session, JWT_SECRET, algorithms=["HS256"])
         tgid = payload.get("telegram_id")
@@ -1853,7 +1851,7 @@ async def startFileDownloadFromUrl(request: Request, session: str = Cookie(None)
         logger.info(f"startFileDownloadFromUrl {data}")
         try:
             id = getRandomID()
-			await enqueue_download(data["url"],id,data["path"],data["filename"],data["singleThreaded"],uploader)
+            await enqueue_download(data["url"], id, data["path"], data["filename"], data["singleThreaded"], uploader)
             return JSONResponse({"status": "ok", "id": id})
         except Exception as e:
             return JSONResponse({"status": str(e)})
