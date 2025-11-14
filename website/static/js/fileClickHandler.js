@@ -148,11 +148,17 @@ function openMoreButton(div) {
     moreDiv.querySelector('.more-options-focus').addEventListener('blur', closeMoreBtnFocus);
     moreDiv.querySelector('.more-options-focus').addEventListener('focusout', closeMoreBtnFocus);
     if (!isTrash) {
-        const renameEl = document.getElementById(`rename-${id}`);
-        if (renameEl) renameEl.addEventListener('click', renameFileFolder);
+    const renameEl = document.getElementById(`rename-${id}`);
+    if (renameEl) renameEl.addEventListener('click', renameFileFolder);
 
-        const trashEl = document.getElementById(`trash-${id}`);
-        if (trashEl) trashEl.addEventListener('click', trashFileFolder);
+    const trashEl = document.getElementById(`trash-${id}`);
+    if (trashEl) {
+        trashEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            trashFileFolder.call(trashEl);
+        });
+    }
+
 
         try {
             const shareEl = document.getElementById(`share-${id}`);
