@@ -455,44 +455,25 @@ class NewBotMode:
         self.current_folder = folder_path
         self.current_folder_name = name
         self.drive_data.save()
+import asyncio
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import PyMongoError
+
+DRIVE_DATA: NewDriveData = None
+BOT_MODE: NewBotMode = None
+
+import asyncio
+from pymongo.errors import PyMongoError
 
 DRIVE_DATA: NewDriveData = None
 BOT_MODE: NewBotMode = None
 
 async def loadDriveData():
+    """Watch for changes in MongoDB Atlas collection using change streams"""
     global DRIVE_DATA, BOT_MODE
-
-    while True:
-        try:
-            # Load data from MongoDB
-            data = drive_data_collection.find_one({})
-            if data:
-                DRIVE_DATA = NewDriveData.from_dict(data)
-                print("DRIVE DATA: ", DRIVE_DATA)
-                logger.info("Drive data loaded from MongoDB")
-            else:
-                logger.info("Creating new drive.data file")
-                DRIVE_DATA = NewDriveData({"/": Folder("/", "ad78asfas90ad5", "/", "root")}, [])
-                DRIVE_DATA.save()
-
-            # Start Bot Mode (if not already started)
-            if config.MAIN_BOT_TOKEN and BOT_MODE is None:
-                from utils.bot_mode import start_bot_mode
-
-                BOT_MODE = NewBotMode(DRIVE_DATA)
-                await start_bot_mode(DRIVE_DATA, BOT_MODE)
-
-        except Exception as e:
-            logger.error(f"Error loading drive data: {e}")
-
-        # Wait for 60 seconds before reloading
-        await asyncio.sleep(5)
-        
-async def loadDriveData2():
-    global DRIVE_DATA
-
+    
+    # Load initial data using sync pymongo
     try:
-        # Load data from MongoDB
         data = drive_data_collection.find_one({})
         if data:
             DRIVE_DATA = NewDriveData.from_dict(data)
@@ -502,7 +483,73 @@ async def loadDriveData2():
             logger.info("Creating new drive.data file")
             DRIVE_DATA = NewDriveData({"/": Folder("/", "ad78asfas90ad5", "/", "root")}, [])
             DRIVE_DATA.save()
+    except Exception as e:
+        logger.error(f"Error loading initial drive data: {e}")
+        return
+    
+    # Start Bot Mode (if not already started)
+    if config.MAIN_BOT_TOKEN and BOT_MODE is None:
+        from utils.bot_mode import start_bot_mode
+        BOT_MODE = NewBotMode(DRIVE_DATA)
+        await start_bot_mode(DRIVE_DATA, BOT_MODE)
+    
+    # Run change stream watcher in background thread
+    def watch_changes_sync():
+        """Synchronous change stream watcher running in thread"""
+        while True:
+            try:
+                logger.info("Starting MongoDB change stream watcher...")
+                # Use change stream with pymongo (sync)
+                with drive_data_collection.watch(full_document='updateLookup') as stream:
+                    logger.info("Change stream connected successfully")
+                    for change in stream:
+                        try:
+                            operation_type = change.get('operationType')
+                            logger.info(f"Detected MongoDB change: {operation_type}")
+                            
+                            # Reload data on any change
+                            if operation_type in ['insert', 'update', 'replace', 'delete']:
+                                data = drive_data_collection.find_one({})
+                                if data:
+                                    global DRIVE_DATA
+                                    DRIVE_DATA = NewDriveData.from_dict(data)
+                                    logger.info("✓ Drive data reloaded after MongoDB change")
+                                    print("DRIVE DATA UPDATED: ", DRIVE_DATA)
+                                else:
+                                    logger.warning("No data found after change event")
+                        except Exception as e:
+                            logger.error(f"Error processing change event: {e}")
+                            continue
+                            
+            except PyMongoError as e:
+                logger.error(f"MongoDB change stream error: {e}")
+                logger.info("Reconnecting in 5 seconds...")
+                import time
+                time.sleep(5)
+            except Exception as e:
+                logger.error(f"Unexpected error in change stream: {e}")
+                import time
+                time.sleep(5)
+    
+    # Start watcher in daemon thread
+    import threading
+    watcher_thread = threading.Thread(target=watch_changes_sync, daemon=True)
+    watcher_thread.start()
+    logger.info("✓ Change stream watcher started (running in background)")
 
+async def loadDriveData2():
+    """Load drive data without watching (one-time load)"""
+    global DRIVE_DATA
+    try:
+        data = drive_data_collection.find_one({})
+        if data:
+            DRIVE_DATA = NewDriveData.from_dict(data)
+            print("DRIVE DATA: ", DRIVE_DATA)
+            logger.info("Drive data loaded from MongoDB")
+        else:
+            logger.info("Creating new drive.data file")
+            DRIVE_DATA = NewDriveData({"/": Folder("/", "ad78asfas90ad5", "/", "root")}, [])
+            DRIVE_DATA.save()
     except Exception as e:
         logger.error(f"Error loading drive data: {e}")
 
