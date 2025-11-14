@@ -1,335 +1,591 @@
-function openFolder() {
-    let path = (getCurrentPath() + '/' + this.getAttribute('data-id') + '/').replaceAll('//', '/')
+from pathlib import Path
+import config
+import random, string, asyncio
+from utils.logger import Logger
+from datetime import datetime, timezone
+from pymongo import MongoClient
+import motor.motor_asyncio
+logger = Logger(__name__)
 
-    const auth = getFolderAuthFromPath()
-    if (auth) {
-        path = path + '&auth=' + auth
-    }
-    window.location.href = `/?path=${path}`
-}
+# MongoDB connection
+mongo_uri = "mongodb+srv://noitamina:Emina4002@cluster0.uaq2e0l.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+#client = MongoClient(mongo_uri)
+client = MongoClient(mongo_uri)
+db = client.tg_drive  # Database name
+drive_data_collection = db.drive_data  # Collection name
 
-function getSharePath() {
-    const url = new URL(window.location.href);
-    return url
-}
+drive_data_collectionx = db.drive_ids
+def getRandomID(length=15):
+    while True:
+        # Generate a random ID
+        id = "".join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=length))
+        print("Generated ID:", id)
 
-async function getVisitorIp() {
-    try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        return data.ip;
-    } catch (error) {
-        console.error("Error fetching IP:", error);
-    }
-}
+        # Retrieve or initialize the document
+        document = drive_data_collectionx.find_one({})
+        if not document:
+            # If no document exists, create one with an empty 'used_ids' array
+            drive_data_collectionx.insert_one({"used_ids": []})
+            document = {"used_ids": []}
 
-window.addEventListener('DOMContentLoaded', function () {
-    const searchInput = document.getElementById('file-search');
+        # Check if the ID already exists in 'used_ids'
+        used_ids = document.get("used_ids", [])
+        if id not in used_ids:
+            # Append the new ID and update the database
+            used_ids.append(id)
+            drive_data_collectionx.update_one(
+                {}, 
+                {"$set": {"used_ids": used_ids}}, 
+                upsert=True
+            )
+            print("Updated ID:", id)
+            return id
 
-    // Check if 'query' parameter is in the URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const query = urlParams.get('query');
+'''
+        if not drive_data_collection.find_one({"used_ids": id}):
+            # Use upsert to ensure document creation if not found
+            result = drive_data_collection.update_one(
+                {}, 
+                {"$push": {"used_ids": id}}, 
+                upsert=True
+            )
+            if result.modified_count > 0 or result.upserted_id is not None:
+                print("after ", id)
+                return id
+'''
+def get_current_utc_time():
+    return datetime.now(timezone.utc).strftime("Date - %Y-%m-%d | Time - %H:%M:%S")
 
-    // If there's a query, set it in the search input field
-    if (query) {
-        searchInput.value = decodeURIComponent(query);
-    }
-});
+  
+class Folder:
+    def __init__(self, name: str, id: str, path: str, uploader: str) -> None:
+        self.name = name
+        self.contents = {}  # Initialize contents as a dictionary
+        if name == "/":
+            self.id = "root"
+            self.path = "/"  # Ensure root folder has a valid path
+        else:
+            self.id = id
+            # Remove trailing slash if present
+            self.path = ("/" + path.strip("/") + "/").replace("//", "/")
+        self.type = "folder"
+        self.trash = False
+        self.upload_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.uploader = uploader
+        self.auth_hashes = []
+    
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "contents": {k: v.to_dict() if hasattr(v, "to_dict") else v for k, v in self.contents.items()},
+            "id": self.id,
+            "type": self.type,
+            "trash": self.trash,
+            "path": self.path,
+            "upload_date": self.upload_date,
+            "uploader": self.uploader,
+            "auth_hashes": self.auth_hashes,
+        }
+    @classmethod
+    def from_dict(cls, data):
+        # Ensure path is not missing or empty
+        path = data.get("path", "/")
+        folder = cls(data["name"], data["id"], path, data["uploader"])
+        folder.contents = {
+            k: Folder.from_dict(v) if v["type"] == "folder" else File.from_dict(v)
+            for k, v in data["contents"].items()
+        }
+       # folder.id = data["id"]
+        folder.trash = data["trash"]
+        folder.upload_date = data["upload_date"]
+        #folder.uploader = data["uploader"]
+        folder.auth_hashes = data.get("auth_hashes", [])
+        return folder
 
-document.getElementById('search-form').addEventListener('submit', function (event) {
-    event.preventDefault();  
-
-    const searchInput = document.getElementById('file-search');
-    const query = searchInput.value.trim();
-
-    if (query === '') {
-        alert('Search field is empty');
-        return;
-    }
-
-    // Get the current URL
-    let currentPath = window.location.href;
-
-    // Parse the current URL and update the query parameter
-    let url = new URL(currentPath);
-    url.searchParams.set('query', query); // Update or add the 'query' parameter
-
-    // Redirect to the updated URL
-    window.location.href = url.toString();
-});
 
 
+class File:
+    def __init__(
+        self,
+        name: str,
+        file_id: int,
+        id: str,
+        size: int,
+        path: str,
+        rentry_link: str,
+        paste_url: str,
+        uploader: str,
+        audio: str,
+        subtitle: str,
+        resolution: str,
+        codec: str,
+        bit_depth: str,
+        duration: str,
+    ) -> None:
+        self.name = name
+        self.file_id = file_id
+        self.id = id
+        self.size = size
+        self.type = "file"
+        self.trash = False
+        # Handle empty path
+        self.path = path[:-1] if path[-1] == "/" else path
+        self.upload_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.rentry_link = rentry_link
+        self.paste_url = paste_url
+        self.uploader = uploader
+        self.audio = audio
+        self.subtitle = subtitle
+        self.resolution = resolution
+        self.codec = codec
+        self.bit_depth = bit_depth
+        self.duration = duration
 
-
-
-
-function encodeBase64(str) {
-    return btoa(str);  // Converts the string to Base64
-}
-
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const isVisible = sidebar.style.display === 'block';
-
-    if (isVisible) {
-        sidebar.style.display = 'none'; // Hide the sidebar
-    } else {
-        sidebar.style.display = 'block'; // Show the sidebar
-    }
-}
-function openFile() {
-    // Ensure that the action is from a user click, not programmatically triggered
- //   if (!this.hasAttribute('data-clicked')) {
-        const fileName = this.getAttribute('data-name').toLowerCase();
-        let pathSuffix = this.getAttribute('data-path') + '/' + this.getAttribute('data-id');
-        
-        // Encode pathSuffix to Base64
-        const encodedPathSuffix = btoa(pathSuffix).split('').reverse().join('');
-
-        let path = '/f?' + encodedPathSuffix;
-
-        if (fileName.endsWith('.mp4') || fileName.endsWith('.mkv') || fileName.endsWith('.webm') || fileName.endsWith('.mov') || fileName.endsWith('.avi') || fileName.endsWith('.ts') || fileName.endsWith('.ogv')) {
-            path = path;
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "file_id": self.file_id,
+            "id": self.id,
+            "size": self.size,
+            "type": self.type,
+            "trash": self.trash,
+            "path": self.path,
+            "upload_date": self.upload_date,
+            "rentry_link": self.rentry_link,
+            "paste_url": self.paste_url,
+            "uploader": self.uploader,
+            "audio": self.audio,
+            "subtitle": self.subtitle,
+            "resolution": self.resolution,
+            "codec": self.codec,
+            "bit_depth": self.bit_depth,
+            "duration": self.duration,
         }
 
-        // Mark this element as clicked, to prevent automated behavior
-        //this.setAttribute('data-clicked', 'true');
+    @classmethod
+    def from_dict(cls, data):
+    # Ensure path is not missing or empty
+        path = data.get("path", "")
+        return cls(
+            name=data["name"],
+            file_id=data["file_id"],
+            id=data["id"],
+            size=data["size"],
+            path=path,
+            rentry_link=data["rentry_link"],
+            paste_url=data["paste_url"],
+            uploader=data["uploader"],
+            audio=data["audio"],
+            subtitle=data["subtitle"],
+            resolution=data["resolution"],
+            codec=data["codec"],
+            bit_depth=data["bit_depth"],
+            duration=data["duration"],
+        )
 
-        window.open(path, '_blank');
-  //  }
-}
+class NewDriveData:
+    def __init__(self, contents: dict, used_ids: list) -> None:
+        self.contents = contents
+        self.used_ids = used_ids
+        self.isUpdated = False
 
-// Add event listener to the element
-document.querySelectorAll('.download-btn').forEach((button) => {
-    button.addEventListener('click', openFile);
-});
-
-function openFilex(element) {
-    // Ensure that the action is from a user click, not programmatically triggered
-    if (!element.hasAttribute('data-clicked')) {
-        const fileName = element.getAttribute('data-name').toLowerCase();
-        let pathSuffix = element.getAttribute('data-path') + '/' + element.getAttribute('data-id');
-        
-        // Encode pathSuffix to Base64
-        const encodedPathSuffix = btoa(pathSuffix).split('').reverse().join('');
-
-        let path = '/f?' + encodedPathSuffix;
-
-        if (fileName.endsWith('.mp4') || fileName.endsWith('.mkv') || fileName.endsWith('.webm') || fileName.endsWith('.mov') || fileName.endsWith('.avi') || fileName.endsWith('.ts') || fileName.endsWith('.ogv')) {
-            path = path;
+    def to_dict(self):
+        return {
+            "contents": {k: v.to_dict() for k, v in self.contents.items()},
+            "used_ids": self.used_ids,
+            "isUpdated": self.isUpdated,
         }
 
-        // Mark this element as clicked, to prevent automated behavior
-        element.setAttribute('data-clicked', 'true');
+    @classmethod
+    def from_dict(cls, data):
+        # Ensure contents is not missing or empty
+        contents = {k: Folder.from_dict(v) for k, v in data["contents"].items()}
+        return cls(contents, data["used_ids"])
+        
+    def save(self) -> None:
+        drive_data_collection.replace_one({}, self.to_dict(), upsert=True)
+        self.isUpdated = True
 
-        window.open(path, '_blank');
-    }
-}
+    def new_folder(self, path: str, name: str, uploader: str) -> None:
+        logger.info(f"Creating new folder {name} in {path} by {uploader}")
 
+    # Ensure path is not empty
+        if not path:
+            path = "/"
 
-// File More Button Handler Start
+    # Create the folder
+        id =  getRandomID()
+        folder = Folder(name, id, path, uploader)
+        print("New some path ", path)
+        if path == "/":
+            directory_folder: Folder = self.contents[path]
+            directory_folder.contents[folder.id] = folder
+        else:
+            paths = path.strip("/").split("/")
+            directory_folder: Folder = self.contents["/"]
+            for path in paths:
+                directory_folder = directory_folder.contents[path]
+                print("directory folder ", directory_folder)
+            directory_folder.contents[folder.id] = folder
 
-function openMoreButton(div) {
-    const id = div.getAttribute('data-id')
-    const moreDiv = document.getElementById(`more-option-${id}`)
+        self.save()
+        return folder.path + folder.id
 
-    const rect = div.getBoundingClientRect();
-    const x = rect.left + window.scrollX - 40;
-    const y = rect.top + window.scrollY;
+    def new_file(self, path: str, name: str, file_id: int, size: int, rentry_link: str, paste_url: str, uploader: str, audio: str, subtitle: str, resolution: str, codec: str, bit_depth: str, duration: str) -> None:
+        logger.info(f"Creating new file {name} in {path} by {uploader}")
+        id = getRandomID()
+        file = File(name, file_id, id, size, path, rentry_link, paste_url, uploader, audio, subtitle, resolution, codec, bit_depth, duration)
+        if path == "/":
+            directory_folder: Folder = self.contents[path]
+            directory_folder.contents[file.id] = file
+        else:
+            paths = path.strip("/").split("/")
+            directory_folder: Folder = self.contents["/"]
+            for path in paths:
+                directory_folder = directory_folder.contents[path]
+            directory_folder.contents[file.id] = file
 
-    moreDiv.style.zIndex = 2
-    moreDiv.style.opacity = 1
-    moreDiv.style.left = `${x}px`
-    moreDiv.style.top = `${y}px`
+        self.save()
 
-    const isTrash = getCurrentPath().includes('/trash')
+    def get_directory(self, path: str, is_admin: bool = True, auth: str = None) -> Folder:
+        folder_data: Folder = self.contents["/"]
+        auth_success = False
+        auth_home_path = None
 
-    moreDiv.querySelector('.more-options-focus').focus()
-    moreDiv.querySelector('.more-options-focus').addEventListener('blur', closeMoreBtnFocus);
-    moreDiv.querySelector('.more-options-focus').addEventListener('focusout', closeMoreBtnFocus);
-    if (!isTrash) {
-    const renameEl = document.getElementById(`rename-${id}`);
-    if (renameEl) renameEl.addEventListener('click', renameFileFolder);
+        if path != "/":
+            path = path.strip("/")
 
-    const trashEl = document.getElementById(`trash-${id}`);
-    if (trashEl) {
-        trashEl.addEventListener('click', (e) => {
-            e.stopPropagation();
-            trashFileFolder.call(trashEl);
-        });
-    }
+            if "/" in path:
+                path = path.split("/")
+            else:
+                path = [path]
 
+            for folder in path:
+                folder_data = folder_data.contents[folder]
 
-        try {
-            const shareEl = document.getElementById(`share-${id}`);
-            if (shareEl) shareEl.addEventListener('click', shareFile);
-        } catch {}
+                if auth in folder_data.auth_hashes:
+                    auth_success = True
+                    auth_home_path = (
+                        "/" + folder_data.path.strip("/") + "/" + folder_data.id
+                    )
 
-        try {
-            const folderShareEl = document.getElementById(`folder-share-${id}`);
-            if (folderShareEl) folderShareEl.addEventListener('click', shareFolder);
-        } catch {}
-    }
-    else {
-        const restoreEl = document.getElementById(`restore-${id}`);
-        if (restoreEl) restoreEl.addEventListener('click', restoreFileFolder);
+        if not is_admin and not auth_success:
+            return None
 
-        const deleteEl = document.getElementById(`delete-${id}`);
-        if (deleteEl) deleteEl.addEventListener('click', deleteFileFolder);
-    }
-}
+        if auth_success:
+            return folder_data, auth_home_path
 
-function closeMoreBtnFocus() {
-    const moreDiv = this.parentElement
-    moreDiv.style.opacity = '0'
-    setTimeout(() => {
-        moreDiv.style.zIndex = '-1'
-    }, 300)
-}
+        return folder_data
 
-// Rename File Folder Start
-function renameFileFolder() {
-    const id = this.getAttribute('id').split('-')[1]
-    console.log(id)
+    def get_directory2(self, path: str, is_admin: bool = True, auth: str = None) -> Folder:
+        folder_data: Folder = self.contents["/"]
+        auth_success = False
+        auth_home_path = None
 
-    document.getElementById('rename-name').value = this.parentElement.getAttribute('data-name');
-    document.getElementById('bg-blur').style.zIndex = '2';
-    document.getElementById('bg-blur').style.opacity = '0.1';
+        if path != "/":
+            path = path.strip("/")
 
-    document.getElementById('rename-file-folder').style.zIndex = '3';
-    document.getElementById('rename-file-folder').style.opacity = '1';
-    document.getElementById('rename-file-folder').setAttribute('data-id', id);
-    setTimeout(() => {
-        document.getElementById('rename-name').focus();
-    }, 300)
-}
+            if "/" in path:
+                path = path.split("/")
+            else:
+                path = [path]
 
-document.getElementById('rename-cancel').addEventListener('click', () => {
-    document.getElementById('rename-name').value = '';
-    document.getElementById('bg-blur').style.opacity = '0';
-    setTimeout(() => {
-        document.getElementById('bg-blur').style.zIndex = '-1';
-    }, 300)
-    document.getElementById('rename-file-folder').style.opacity = '0';
-    setTimeout(() => {
-        document.getElementById('rename-file-folder').style.zIndex = '-1';
-    }, 300)
-});
+            for folder in path:
+                folder_data = folder_data.contents[folder]
 
-document.getElementById('rename-create').addEventListener('click', async () => {
-    const name = document.getElementById('rename-name').value;
-    if (name === '') {
-        alert('Name cannot be empty')
+                #if auth in folder_data.auth_hashes:
+                auth_success = True
+                auth_home_path = (
+                    "/" + folder_data.path.strip("/") + "/" + folder_data.id
+                )
+
+        return folder_data
+        
+    def get_folder_auth(self, path: str) -> None:
+        auth = getRandomID()
+        folder_data: Folder = self.contents["/"]
+
+        if path != "/":
+            path = path.strip("/")
+
+            if "/" in path:
+                path = path.split("/")
+            else:
+                path = [path]
+
+            for folder in path:
+                folder_data = folder_data.contents[folder]
+
+        folder_data.auth_hashes.append(auth)
+        self.save()
+        return auth
+
+    def get_file(self, path) -> File:
+        if len(path.strip("/").split("/")) > 0:
+            folder_path = "/" + "/".join(path.strip("/").split("/")[:-1])
+            file_id = path.strip("/").split("/")[-1]
+        else:
+            folder_path = "/"
+            file_id = path.strip("/")
+
+        folder_data = self.get_directory(folder_path)
+        return folder_data.contents[file_id]
+
+    def rename_file_folder(self, path: str, new_name: str) -> None:
+        logger.info(f"Renaming {path} to {new_name}")
+
+        if len(path.strip("/").split("/")) > 0:
+            folder_path = "/" + "/".join(path.strip("/").split("/")[:-1])
+            file_id = path.strip("/").split("/")[-1]
+        else:
+            folder_path = "/"
+            file_id = path.strip("/")
+        folder_data = self.get_directory(folder_path)
+        folder_data.contents[file_id].name = new_name
+        self.save()
+
+    def trash_file_folder(self, path: str, trash: bool) -> None:
+        logger.info(f"Trashing {path}")
+
+        if len(path.strip("/").split("/")) > 0:
+            folder_path = "/" + "/".join(path.strip("/").split("/")[:-1])
+            file_id = path.strip("/").split("/")[-1]
+        else:
+            folder_path = "/"
+            file_id = path.strip("/")
+        folder_data = self.get_directory(folder_path)
+        folder_data.contents[file_id].trash = trash
+        self.save()
+
+    def get_trashed_files_folders(self):
+        root_dir = self.get_directory("/")
+        trash_data = {}
+
+        def traverse_directory(folder):
+            for item in folder.contents.values():
+                if item.type == "folder":
+                    if item.trash:
+                        trash_data[item.id] = item
+                    else:
+                        # Recursively traverse the subfolder
+                        traverse_directory(item)
+                elif item.type == "file":
+                    if item.trash:
+                        trash_data[item.id] = item
+
+        traverse_directory(root_dir)
+        return trash_data
+
+    def delete_file_folder(self, path: str) -> None:
+        logger.info(f"Deleting {path}")
+
+        if len(path.strip("/").split("/")) > 0:
+            folder_path = "/" + "/".join(path.strip("/").split("/")[:-1])
+            file_id = path.strip("/").split("/")[-1]
+        else:
+            folder_path = "/"
+            file_id = path.strip("/")
+
+        folder_data = self.get_directory(folder_path)
+        del folder_data.contents[file_id]
+        self.save()
+
+    def search_file_folder(self, query: str, path: str):
+        if path=="":
+            root_dir = self.get_directory("/")
+        elif path=="/":
+            root_dir = self.get_directory("/")
+        else:   
+            root_dir = self.get_directory(path)
+            print(root_dir)
+        search_results = {}
+
+        def traverse_directory(folder):
+            for item in folder.contents.values():
+                if query.lower() in item.name.lower():
+                    search_results[item.id] = item
+                if item.type == "folder":
+                    traverse_directory(item)
+        traverse_directory(root_dir)
+        return search_results
+
+    def search_file_folderx(self, query: str):
+        root_dir = self.get_directory("/")
+        search_results = {}
+
+        def traverse_directory(folder):
+            for item in folder.contents.values():
+                if query.lower() in item.name.lower():
+                    search_results[item.id] = item
+                if item.type == "folder":
+                    traverse_directory(item)
+
+        traverse_directory(root_dir)
+        return search_results
+
+    def search_file_folder2(self, query: str, path: str, is_admin: bool, auth: str):
+        if path=="":
+            root_dir, auth_home_path = self.get_directory("/", is_admin, auth)
+        elif path=="/":
+            root_dir, auth_home_path = self.get_directory("/", is_admin, auth)
+        else:   
+            root_dir = self.get_directory(path)
+            print(root_dir)
+        search_results = {}
+
+        def traverse_directory(folder):
+            for item in folder.contents.values():
+                if query.lower() in item.name.lower():
+                    search_results[item.id] = item
+                if item.type == "folder":
+                    traverse_directory(item)
+
+        traverse_directory(root_dir)
+        return search_results
+
+class NewBotMode:
+    def __init__(self, drive_data: NewDriveData) -> None:
+        self.drive_data = drive_data
+
+        # Set the current folder to root directory by default
+        self.current_folder = "/"
+        self.current_folder_name = "/ (root directory)"
+
+    def set_folder(self, folder_path: str, name: str) -> None:
+        self.current_folder = folder_path
+        self.current_folder_name = name
+        self.drive_data.save()
+
+DRIVE_DATA: NewDriveData = None
+BOT_MODE: NewBotMode = None
+'''
+async def loadDriveData():
+    global DRIVE_DATA, BOT_MODE
+
+    while True:
+        try:
+            # Load data from MongoDB
+            data = drive_data_collection.find_one({})
+            if data:
+                DRIVE_DATA = NewDriveData.from_dict(data)
+                print("DRIVE DATA: ", DRIVE_DATA)
+                logger.info("Drive data loaded from MongoDB")
+            else:
+                logger.info("Creating new drive.data file")
+                DRIVE_DATA = NewDriveData({"/": Folder("/", "ad78asfas90ad5", "/", "root")}, [])
+                DRIVE_DATA.save()
+
+            # Start Bot Mode (if not already started)
+            if config.MAIN_BOT_TOKEN and BOT_MODE is None:
+                from utils.bot_mode import start_bot_mode
+
+                BOT_MODE = NewBotMode(DRIVE_DATA)
+                await start_bot_mode(DRIVE_DATA, BOT_MODE)
+
+        except Exception as e:
+            logger.error(f"Error loading drive data: {e}")
+
+        # Wait for 60 seconds before reloading
+        await asyncio.sleep(30)
+
+'''
+import asyncio
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import PyMongoError
+
+DRIVE_DATA: NewDriveData = None
+BOT_MODE: NewBotMode = None
+
+import asyncio
+from pymongo.errors import PyMongoError
+
+DRIVE_DATA: NewDriveData = None
+BOT_MODE: NewBotMode = None
+
+async def loadDriveData():
+    """Watch for changes in MongoDB Atlas collection using change streams"""
+    global DRIVE_DATA, BOT_MODE
+    
+    # Load initial data using sync pymongo
+    try:
+        data = drive_data_collection.find_one({})
+        if data:
+            DRIVE_DATA = NewDriveData.from_dict(data)
+            print("DRIVE DATA: ", DRIVE_DATA)
+            logger.info("Drive data loaded from MongoDB")
+        else:
+            logger.info("Creating new drive.data file")
+            DRIVE_DATA = NewDriveData({"/": Folder("/", "ad78asfas90ad5", "/", "root")}, [])
+            DRIVE_DATA.save()
+    except Exception as e:
+        logger.error(f"Error loading initial drive data: {e}")
         return
-    }
+    
+    # Start Bot Mode (if not already started)
+    if config.MAIN_BOT_TOKEN and BOT_MODE is None:
+        from utils.bot_mode import start_bot_mode
+        BOT_MODE = NewBotMode(DRIVE_DATA)
+        await start_bot_mode(DRIVE_DATA, BOT_MODE)
+    
+    # Run change stream watcher in background thread
+    def watch_changes_sync():
+        """Synchronous change stream watcher running in thread"""
+        while True:
+            try:
+                logger.info("Starting MongoDB change stream watcher...")
+                # Use change stream with pymongo (sync)
+                with drive_data_collection.watch(full_document='updateLookup') as stream:
+                    logger.info("Change stream connected successfully")
+                    for change in stream:
+                        try:
+                            operation_type = change.get('operationType')
+                            logger.info(f"Detected MongoDB change: {operation_type}")
+                            
+                            # Reload data on any change
+                            if operation_type in ['insert', 'update', 'replace', 'delete']:
+                                data = drive_data_collection.find_one({})
+                                if data:
+                                    global DRIVE_DATA
+                                    DRIVE_DATA = NewDriveData.from_dict(data)
+                                    logger.info("✓ Drive data reloaded after MongoDB change")
+                                    print("DRIVE DATA UPDATED: ", DRIVE_DATA)
+                                else:
+                                    logger.warning("No data found after change event")
+                        except Exception as e:
+                            logger.error(f"Error processing change event: {e}")
+                            continue
+                            
+            except PyMongoError as e:
+                logger.error(f"MongoDB change stream error: {e}")
+                logger.info("Reconnecting in 5 seconds...")
+                import time
+                time.sleep(5)
+            except Exception as e:
+                logger.error(f"Unexpected error in change stream: {e}")
+                import time
+                time.sleep(5)
+    
+    # Start watcher in daemon thread
+    import threading
+    watcher_thread = threading.Thread(target=watch_changes_sync, daemon=True)
+    watcher_thread.start()
+    logger.info("✓ Change stream watcher started (running in background)")
 
-    const id = document.getElementById('rename-file-folder').getAttribute('data-id')
-
-    const path = document.getElementById(`more-option-${id}`).getAttribute('data-path') + '/' + id
-
-    const data = {
-        'name': name,
-        'path': path
-    }
-
-    const response = await postJson('/api/renameFileFolder', data)
-    if (response.status === 'ok') {
-        alert('File/Folder Renamed Successfully')
-        window.location.reload();
-    } else {
-        alert('Failed to rename file/folder')
-        window.location.reload();
-    }
-});
-
-
-// Rename File Folder End
-
-async function trashFileFolder() {
-    const id = this.getAttribute('id').split('-')[1]
-    console.log(id)
-    const path = document.getElementById(`more-option-${id}`).getAttribute('data-path') + '/' + id
-    const data = {
-        'path': path,
-        'trash': true
-    }
-    const response = await postJson('/api/trashFileFolder', data)
-
-    if (response.status === 'ok') {
-        alert('File/Folder Sent to Trash Successfully')
-        window.location.reload();
-    } else {
-        alert('Failed to Send File/Folder to Trash')
-        window.location.reload();
-    }
-}
-
-async function restoreFileFolder() {
-    const id = this.getAttribute('id').split('-')[1]
-    const path = this.getAttribute('data-path') + '/' + id
-    const data = {
-        'path': path,
-        'trash': false
-    }
-    const response = await postJson('/api/trashFileFolder', data)
-
-    if (response.status === 'ok') {
-        alert('File/Folder Restored Successfully')
-        window.location.reload();
-    } else {
-        alert('Failed to Restored File/Folder')
-        window.location.reload();
-    }
-}
-
-async function deleteFileFolder() {
-    const id = this.getAttribute('id').split('-')[1]
-    const path = this.getAttribute('data-path') + '/' + id
-    const data = {
-        'path': path
-    }
-    const response = await postJson('/api/deleteFileFolder', data)
-
-    if (response.status === 'ok') {
-        alert('File/Folder Deleted Successfully')
-        window.location.reload();
-    } else {
-        alert('Failed to Delete File/Folder')
-        window.location.reload();
-    }
-}
-
-async function shareFile() {
-    const fileName = this.parentElement.getAttribute('data-name').toLowerCase()
-    const id = this.getAttribute('id').split('-')[1]
-    const path = document.getElementById(`more-option-${id}`).getAttribute('data-path') + '/' + id
-    const root_url = getRootUrl()
-    const encodedPathSuffix = btoa(id).split('').reverse().join('');
-    let link
-    if (fileName.endsWith('.mp4') || fileName.endsWith('.mkv') || fileName.endsWith('.webm') || fileName.endsWith('.mov') || fileName.endsWith('.avi') || fileName.endsWith('.ts') || fileName.endsWith('.ogv')) {
-        link = `${root_url}/f?${encodedPathSuffix}`
-    } else {
-        link = `${root_url}/f?${encodedPathSuffix}`
-
-    }
-
-    copyTextToClipboard(link)
-}
+async def loadDriveData2():
+    """Load drive data without watching (one-time load)"""
+    global DRIVE_DATA
+    try:
+        data = drive_data_collection.find_one({})
+        if data:
+            DRIVE_DATA = NewDriveData.from_dict(data)
+            print("DRIVE DATA: ", DRIVE_DATA)
+            logger.info("Drive data loaded from MongoDB")
+        else:
+            logger.info("Creating new drive.data file")
+            DRIVE_DATA = NewDriveData({"/": Folder("/", "ad78asfas90ad5", "/", "root")}, [])
+            DRIVE_DATA.save()
+    except Exception as e:
+        logger.error(f"Error loading drive data: {e}")
 
 
-async function shareFolder() {
-    const id = this.getAttribute('id').split('-')[2]
-    console.log(id)
-    let path = document.getElementById(`more-option-${id}`).getAttribute('data-path') + '/' + id
-    const root_url = getRootUrl()
-    path = path.replaceAll('//', '/')
-    const auth = await getFolderShareAuth(path)
-    path = path.slice(1)
 
-    let link = `${root_url}/share?directory=${path}&auth=${auth}`
-    console.log(link)
-
-    copyTextToClipboard(link)
-}
-
-// File More Button Handler  End
