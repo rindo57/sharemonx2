@@ -1,0 +1,639 @@
+/*#ff79c6 pink*/
+/*FF5733*/
+/*#ff79c6 pink*/
+/*FF5733*/
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #1b1f2f;
+    color: #fff;
+    height: 100vh;
+    display: flex;
+    flex-direction: column; /* Stack children vertically */
+}
+
+.container {
+    flex: 1; /* Allow the container to grow and fill space */
+    display: flex;
+    background: #f1f1f1;
+    grid-template-columns: auto 1fr;
+}
+
+.rotate-90 {
+    transform: rotate(90deg);
+}
+
+/* Sidebar Style Start */
+
+.sidebar {
+    width: 200px;
+    height: 100%;
+    background-color: black;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    align-items: start;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: start;
+}
+
+.sidebar-header img {
+    width: 160px;
+    height: 60px;
+    margin-right: 10px;
+}
+.sidebar-header span {
+    font-size: 1.5em;
+    font-weight: 600;
+    color: #f06292; /* Anime-inspired accent color */
+}
+
+.sidebar .new-button {
+    padding: 15px 20px;
+    background-color:#ff79c6;
+    border: 0px #ff1493;
+    border-radius: 20px;
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+    font-size: 1.2rem;
+    color: white;
+    font-weight: 500;
+
+}
+
+.sidebar .new-button:hover {
+    transition: all 0.1s ease;
+    background-color: #ff79c6;
+    border: 0px solid #ff79c6;
+    box-shadow: 0 0 30px 1px #ff1493;
+}
+
+.sidebar .new-button img {
+    width: 24px;
+    height: 24px;
+    margin-right: 10px;
+}
+
+.new-upload {
+    position: absolute;
+    background-color: #25293c;
+    padding: 2px 0px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    width: 250px;
+    margin-top: 50px;
+    z-index: -1;
+    opacity: 0.5;
+    transition: all 0.2s;
+}
+
+.new-upload div {
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.new-upload div:hover {
+    background-color: #1b1f2f;
+}
+
+.new-upload div img {
+    margin-right: 10px;
+    height: 20px;
+    width: 20px;
+}
+
+.new-upload hr {
+    border: 1px solid #e0e0e0;
+    margin: 2px 0px;
+}
+
+.bg-blur {
+    position: fixed;
+    background-color: #000000;
+    height: 100dvh;
+    width: 100dvw;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+    opacity: 0;
+}
+
+/* More Options Start */
+
+.more-options {
+    position: absolute;
+    background-color: #25293c;
+    padding: 2px 0px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+    border-radius: 1.5px;
+    z-index: -1;
+    opacity: 0;
+    transition: all 0.2s;
+    width: 150px;
+    transform: translateX(-50%);
+}
+
+.more-options div {
+    width: 100%;
+    padding: 5px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.more-options div:hover {
+    background-color: #1b1f2f;
+}
+
+.more-options div img {
+    margin-right: 10px;
+    height: 20px;
+    width: 20px;
+}
+
+.more-options hr {
+    border: 1px solid #e0e0e0;
+    margin: 2px 0px;
+}
+
+/* More Options End */
+
+
+/* Create New Folder Start */
+.create-new-folder {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    background-color: #25293c;
+    border-radius: 10px;
+    z-index: -1;
+    opacity: 0;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+    transition: opacity 0.3s ease;
+    width: 400px;
+}
+
+.create-new-folder span {
+    font-size: 1.2rem;
+    font-weight: 400;
+    color: white;
+    margin-bottom: 20px;
+    width: 100%;
+    margin-left: 10px;
+}
+
+.create-new-folder input {
+    width: 100%;
+    padding: 10px 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    outline: none;
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: black;
+    margin-bottom: 20px;
+}
+
+.create-new-folder div {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: end;
+    gap: 10px;
+}
+
+.create-new-folder button {
+    background-color: transparent;
+    border: none;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    color: #ff79c6;
+    font-weight: 500;
+    padding: 10px 20px;
+}
+
+.create-new-folder button:hover {
+    background-color: #f9edfa;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Create New Folder End */
+
+/* Remote URL Upload Start */
+
+#single-threaded-div{
+    display: flex;
+    flex-direction: row;
+    justify-content: start;
+    align-items: center;
+    width: 100%;
+    margin: 10px 0px;
+}
+
+#single-threaded-div input{
+    width: auto;
+    margin: 0px;
+    margin-left: 10px;
+}
+
+#single-threaded-div img{
+    height: 16px;
+    width: 16px;
+}
+#single-threaded-div a{
+    height: 16px;
+    width: 16px;
+}
+
+/* Remote URL Upload End */
+
+/* File Uploader Start */
+
+.file-uploader {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    background-color: #25293c;
+    border-radius: 10px;
+    z-index: -1;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+    transition: opacity 0.3s ease;
+    width: 500px;
+    opacity: 0;
+}
+
+.upload-head {
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: #e1e8e6;
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.upload-info {
+    font-size: 16px;
+    font-weight: 400;
+    color: #e1e8e6;
+    margin-bottom: 5px;
+    width: 100%;
+    max-height: 40px;
+    overflow: hidden;
+}
+
+.progress {
+    width: 100%;
+    background-color: #ddd;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 20px;
+}
+
+.progress-bar {
+    height: 20px;
+    background-color: #ff79c6;
+    width: 0;
+    transition: width 0.3s;
+}
+
+.file-uploader .btn-div {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: end;
+    margin-top: 20px;
+}
+
+.file-uploader button {
+    background-color: transparent;
+    border: none;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    color: #ff79c6;
+    font-weight: 500;
+    padding: 10px 20px;
+}
+
+.file-uploader button:hover {
+    background-color: #edf1fa;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); 
+}
+
+.file-uploader .Pending-upload-list button {
+    background-color: #f44336; /* Red color */
+    color: white; /* Text color */
+    border: none; /* No border */
+    border-radius: 4px; /* Rounded corners */
+    padding: 5px 10px; /* Padding */
+    cursor: pointer; /* Pointer cursor on hover */
+    font-size: 14px; /* Font size */
+}
+
+.file-uploader .Pending-upload-list button:hover {
+    background-color: #d32f2f; /* Darker red on hover */
+}
+
+/* File Uploader End */
+
+.sidebar-menu a {
+    text-decoration: none;
+    color: #fff;
+    font-size: 1.1em;
+    margin: 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+
+.sidebar-menu a.selected-item {
+    color: #ff79c6;
+}
+
+.sidebar-menu a:hover {
+    color: #ff79c6;
+}
+
+.sidebar-menu a img {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+}
+
+/* Sidebar Style End */
+
+/* Main Content Style Start */
+
+.main-content {
+    flex-grow: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    background-color: black;
+}
+
+.main-content .header {
+    width: 100%;
+    
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 40px;
+}
+
+#search-form {
+    height: 100%;
+    
+    width: 100%;
+
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    background-color: black;
+    padding: 10px;
+    border-radius: 25px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    width: 100%; /* Or any specific width */
+    box-shadow: 0 0 10px 1px #ff1493;
+ /* Moves the search bar to the right */
+}
+.search-bar img {
+    margin-right: 10px;
+}
+
+.search-bar input {
+    background: none;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 1.1em;
+    width: 100%;
+}
+.search-bar:hover,
+.search-bar:focus-within {
+    box-shadow: 0 0 10px 1px yellow;
+}
+/* Directory Styling */
+.directory table {
+    width: 100%;
+    margin-top: 15px;
+    border-collapse: collapse;
+    background-color: black;
+    border-radius: 5px;
+    overflow: hidden;
+   /* 0 0px 10px 1px #ff1493 */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.download-btn .fas.fa-download {
+            color: #ff79c6;
+         font-size: 1.2rem;
+        }
+.download-btn .fas.fa-download:hover {
+        color: #f06292;
+         font-size: 1.5rem;
+        }
+.body-tr .far.fa-file {
+            color: #ff79c6;
+         font-size: 1.2rem;
+        }
+.body-tr .fas.fa-folder {
+            color: #ff79c6;
+         font-size: 1.2rem;
+        }
+
+.directory th {
+    padding: 8px;
+    text-align: center;
+    color: #fff;
+    border-bottom: 1px solid #3d405c;
+}
+
+.directory td {
+    padding: 5px;
+    text-align: center;
+    color: #fff;
+    border-bottom: 1px solid #3d405c;
+}
+
+.directory th {
+    background-color: #ff79c6;
+}
+
+.directory tr:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.directory td {
+    transition: background-color 0.2s ease;
+}
+
+.directory .td-align .download-btn img {
+    width: 20px;
+    height: 20px;
+    margin: 0px;
+}
+
+.directory .td-align .download-btn {
+    display: flex;
+    justify-content: center;
+    cursor: pointer; 
+}
+
+.directory .file-tr{
+text-align: left;
+}
+
+.directory .more-btn img {
+    width: 14px;
+    height: 14px;
+    margin: 0px;
+}
+
+.directory .more-btn {
+    padding: 8px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.directory .more-btn:hover {
+    background-color: #b9b9b9;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.create-new-folder, .file-uploader {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.footer {
+    margin-top: auto; /* Push the footer to the bottom */
+    width: 100%;
+    font-family: Verdana, Geneva, sans-serif;
+    font-size: 12px;
+    font-style: normal;
+    text-align: center;
+    color: #ccbd92;
+    border-top: 1px solid #ccbd92;
+    padding: 10px; /* Add padding for spacing */
+    background-color: black;
+}
+
+.footer-content {
+    display: flex; /* Align links in a row */
+    justify-content: center; /* Center the links */
+    align-items: center; /* Align vertically */
+    gap: 10px; /* Space between links */
+}
+
+.footer-content a {
+    color: #ff79c6; /* Accent color */
+    text-decoration: none;
+    margin: 0; /* Remove margin */
+}
+.hamburger {
+    display: none; /* Hidden by default */
+    position: absolute; /* Position it absolutely */
+    top: 10px; /* Adjust the top position */
+    left: 15px; /* Adjust the left position */
+    background: none; /* No background */
+    border: none; /* No border */
+    color: #fff; /* White color for the icon */
+    font-size: 24px; /* Size of the icon */
+    cursor: pointer; /* Pointer cursor on hover */
+    z-index: 1000; /* Ensure it is above other elements */
+}
+@media (max-width: 768px) {
+    .sidebar {
+        display: none; /* Hide sidebar on mobile */
+    }
+    .hamburger {
+        display: block; /* Show the hamburger menu on mobile */
+    }
+
+    .main-content {
+        padding: 10px; /* Reduce padding on mobile */
+    }
+.search-bar {
+    display: flex;
+    align-items: center;
+    background-color: #25293c;
+    padding: 10px;
+    border-radius: 25px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    width: 97%; /* Or any specific width */
+    box-shadow: 0 0 10px 1px #ff1493;
+    margin-left: 50px; /* Moves the search bar to the right */
+}
+    .file-uploader {
+        width: 90%; /* Make uploader responsive */
+    }
+
+    .directory table {
+        font-size: 14px; /* Smaller font size for mobile */
+    }
+}
+
+/* Responsive Styles */
+
+}

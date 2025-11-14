@@ -1,0 +1,247 @@
+/* General Styling */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #1b1f2f;
+    color: #fff;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+.container {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+}
+
+/* Sidebar Styling */
+.sidebar {
+    background-color: #25293c;
+    width: 250px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-header img {
+    width: 40px;
+}
+
+.sidebar-header span {
+    font-size: 1.5em;
+    font-weight: 600;
+    color: #f06292; /* Anime-inspired accent color */
+}
+
+.sidebar .new-button {
+    background-color: #ff79c6;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 20px 0;
+    font-size: 1.1em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background-color 0.3s ease;
+}
+
+.new-button:hover {
+    background-color: #e57373;
+}
+
+.new-upload {
+    display: none;
+    flex-direction: column;
+    margin-top: 20px;
+}
+
+.new-upload div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    cursor: pointer;
+}
+
+.new-upload div:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+}
+
+.sidebar-menu a {
+    text-decoration: none;
+    color: #fff;
+    font-size: 1.1em;
+    margin: 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-menu a.selected-item {
+    color: #ff79c6;
+}
+
+.sidebar-menu a:hover {
+    color: #ff79c6;
+}
+
+/* Main Content Styling */
+.main-content {
+    flex-grow: 1;
+    padding: 20px;
+    background-color: #1b1f2f;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    background-color: #25293c;
+    padding: 10px;
+    border-radius: 25px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    width: 100%;
+}
+
+.search-bar img {
+    margin-right: 10px;
+}
+
+.search-bar input {
+    background: none;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 1.1em;
+    width: 100%;
+}
+
+/* Directory Styling */
+.directory table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #25293c;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.directory th, .directory td {
+    padding: 15px;
+    text-align: left;
+    color: #fff;
+    border-bottom: 1px solid #3d405c;
+}
+
+.directory th {
+    background-color: #ff79c6;
+}
+
+.directory tr:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.directory td {
+    transition: background-color 0.2s ease;
+}
+
+/* Upload Dialogs */
+.create-new-folder, .file-uploader {
+    background-color: #25293c;
+    padding: 20px;
+    border-radius: 10px;
+    width: 400px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.create-new-folder span, .file-uploader span {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.create-new-folder input, .file-uploader input {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: #1b1f2f;
+    color: #fff;
+}
+
+.create-new-folder button, .file-uploader button {
+    padding: 10px;
+    
+    background-color: #ff79c6;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.create-new-folder button:hover, .file-uploader button:hover {
+    background-color: #e57373;
+}
+
+/* Progress Bar */
+.progress {
+    background-color: #1b1f2f;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    background-color: #ff79c6;
+    height: 10px;
+    width: 0;
+    transition: width 0.4s ease;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.create-new-folder, .file-uploader {
+    animation: fadeIn 0.5s ease-in-out;
+}
