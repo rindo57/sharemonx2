@@ -28,10 +28,12 @@ from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Random import get_random_bytes
 from base58 import b58encode
 from base64 import b64encode
+import asyncio
 logger = Logger(__name__)
 PROGRESS_CACHE = {}
 STOP_TRANSMISSION = []
 
+UPLOAD_LOCK = asyncio.Lock()
 def format_duration(duration_in_seconds):
     """
     Convert duration from seconds to a readable format "XX min XX s".
@@ -483,85 +485,86 @@ async def start_file_uploader(file_path, id, directory_path, filename, file_size
 
 
 async def start_file_uploader2(file_path, id, directory_path, filename, file_size, uploader):
-    global PROGRESS_CACHE
-    from utils.directoryHandler import DRIVE_DATA
-
-    logger.info(f"Uploading file {file_path} {id}")
+    async with UPLOAD_LOCK:
+        global PROGRESS_CACHE
+        from utils.directoryHandler import DRIVE_DATA
     
-    # Format media info using the provided function
-    if filename.endswith(".mkv"):
-        media_details = format_media_info(file_path, file_size)
-        content = f"Media Info:\n\n{media_details}"
-        api_key = "mZPtsfP1kPALQDyF56Qk1_exO1dIkWcR"  # Replace with your actual API key
-        paste_url = create_private_bin_post(f"""Media Info:\n\n{media_details}""")
-        print("The pastebin URL is:", paste_url)
-        rentry_link = get_rentry_link(content)
-        print(rentry_link)
-        infox = get_media_language_info(file_path)
-        audio = infox.get("audio_languages")
-        print("Audio Languages:", infox.get("audio_languages"))
-        subtitle = infox.get("subtitle_languages")
-        print("Subtitle Languages:", infox.get("subtitle_languages"))
-        resolution = infox.get("video_resolution")
-        print("Video Resolution:", infox.get("video_resolution"))
-        codec = infox.get("video_codec")
-        print("Video Codec:", infox.get("video_codec"))
-        bit_depth = infox.get("video_bit_depth")
-        print("Video Bit Depth:", infox.get("video_bit_depth"))
-        duration = infox.get("duration")
-        print("Duration:", infox.get("duration"))
+        logger.info(f"Uploading file {file_path} {id}")
         
-    elif filename.endswith(".mp4"):
-        media_details = format_media_info(file_path, file_size)
-        content = f"Media Info:\n\n{media_details}"
-        api_key = "mZPtsfP1kPALQDyF56Qk1_exO1dIkWcR"  # Replace with your actual API key
-        paste_url = create_private_bin_post(f"""Media Info:\n\n{media_details}""")
-        print("The pastebin URL is:", paste_url)
-        rentry_link = get_rentry_link(content)
-        print(rentry_link)
-        infox = get_media_language_info(file_path)
-        audio = infox.get("audio_languages")
-        print("Audio Languages:", infox.get("audio_languages"))
-        subtitle = infox.get("subtitle_languages")
-        print("Subtitle Languages:", infox.get("subtitle_languages"))
-        resolution = infox.get("video_resolution")
-        print("Video Resolution:", infox.get("video_resolution"))
-        codec = infox.get("codec")
-        print("Video Codec:", infox.get("video_codec"))
-        bit_depth = infox.get("video_bit_depth")
-        print("Video Bit Depth:", infox.get("video_bit_depth"))
-        duration = infox.get("duration")
-        print("Duration:", infox.get("duration"))
-    else:
-        rentry_link = "https://rentry.co/404"
-
-    # Select appropriate client based on file size
-    if file_size > 1.98 * 1024 * 1024 * 1024:
-        client: Client = get_client(premium_required=True)
-    else:
-        client: Client = get_client()
-
-    PROGRESS_CACHE[id] = ("running", 0, 0)
-
-    # Upload the file and save its metadata
-    message: Message = await client.send_document(
-        STORAGE_CHANNEL,
-        file_path,
-        progress=progress_callback,
-        progress_args=(id, client, file_path),
-        disable_notification=True,
-    )
-    size = (
-        message.photo
-        or message.document
-        or message.video
-        or message.audio
-        or message.sticker
-    ).file_size
-
-    filename = unquote_plus(filename)
-
-    DRIVE_DATA.new_file(directory_path, filename, message.id, size, rentry_link, paste_url, uploader, audio, subtitle, resolution, codec, bit_depth, duration)
-    PROGRESS_CACHE[id] = ("completed", size, size)
-
-    logger.info(f"Uploaded file {file_path} {id}")
+        # Format media info using the provided function
+        if filename.endswith(".mkv"):
+            media_details = format_media_info(file_path, file_size)
+            content = f"Media Info:\n\n{media_details}"
+            api_key = "mZPtsfP1kPALQDyF56Qk1_exO1dIkWcR"  # Replace with your actual API key
+            paste_url = create_private_bin_post(f"""Media Info:\n\n{media_details}""")
+            print("The pastebin URL is:", paste_url)
+            rentry_link = get_rentry_link(content)
+            print(rentry_link)
+            infox = get_media_language_info(file_path)
+            audio = infox.get("audio_languages")
+            print("Audio Languages:", infox.get("audio_languages"))
+            subtitle = infox.get("subtitle_languages")
+            print("Subtitle Languages:", infox.get("subtitle_languages"))
+            resolution = infox.get("video_resolution")
+            print("Video Resolution:", infox.get("video_resolution"))
+            codec = infox.get("video_codec")
+            print("Video Codec:", infox.get("video_codec"))
+            bit_depth = infox.get("video_bit_depth")
+            print("Video Bit Depth:", infox.get("video_bit_depth"))
+            duration = infox.get("duration")
+            print("Duration:", infox.get("duration"))
+            
+        elif filename.endswith(".mp4"):
+            media_details = format_media_info(file_path, file_size)
+            content = f"Media Info:\n\n{media_details}"
+            api_key = "mZPtsfP1kPALQDyF56Qk1_exO1dIkWcR"  # Replace with your actual API key
+            paste_url = create_private_bin_post(f"""Media Info:\n\n{media_details}""")
+            print("The pastebin URL is:", paste_url)
+            rentry_link = get_rentry_link(content)
+            print(rentry_link)
+            infox = get_media_language_info(file_path)
+            audio = infox.get("audio_languages")
+            print("Audio Languages:", infox.get("audio_languages"))
+            subtitle = infox.get("subtitle_languages")
+            print("Subtitle Languages:", infox.get("subtitle_languages"))
+            resolution = infox.get("video_resolution")
+            print("Video Resolution:", infox.get("video_resolution"))
+            codec = infox.get("codec")
+            print("Video Codec:", infox.get("video_codec"))
+            bit_depth = infox.get("video_bit_depth")
+            print("Video Bit Depth:", infox.get("video_bit_depth"))
+            duration = infox.get("duration")
+            print("Duration:", infox.get("duration"))
+        else:
+            rentry_link = "https://rentry.co/404"
+    
+        # Select appropriate client based on file size
+        if file_size > 1.98 * 1024 * 1024 * 1024:
+            client: Client = get_client(premium_required=True)
+        else:
+            client: Client = get_client()
+    
+        PROGRESS_CACHE[id] = ("running", 0, 0)
+    
+        # Upload the file and save its metadata
+        message: Message = await client.send_document(
+            STORAGE_CHANNEL,
+            file_path,
+            progress=progress_callback,
+            progress_args=(id, client, file_path),
+            disable_notification=True,
+        )
+        size = (
+            message.photo
+            or message.document
+            or message.video
+            or message.audio
+            or message.sticker
+        ).file_size
+    
+        filename = unquote_plus(filename)
+    
+        DRIVE_DATA.new_file(directory_path, filename, message.id, size, rentry_link, paste_url, uploader, audio, subtitle, resolution, codec, bit_depth, duration)
+        PROGRESS_CACHE[id] = ("completed", size, size)
+    
+        logger.info(f"Uploaded file {file_path} {id}")
