@@ -166,11 +166,14 @@ class File:
 
     @classmethod
     def from_dict(cls, data):
+        # Ensure path is not missing or empty
         path = data.get("path", "")
+        # Sanitize bad IDs that may start with '/'
         fid = data.get("id")
         if isinstance(fid, str):
-            fid = fid.lstrip("/")  # strip any leading slash
-        return cls(
+            fid = fid.lstrip("/")
+
+        obj = cls(
             name=data["name"],
             file_id=data["file_id"],
             id=fid,
@@ -186,6 +189,9 @@ class File:
             bit_depth=data["bit_depth"],
             duration=data["duration"],
         )
+        # Preserve trash flag from DB (this is the critical fix)
+        obj.trash = bool(data.get("trash", False))
+        return obj
         '''
     @classmethod
     def from_dict(cls, data):
